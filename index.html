@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Find a Dealer</title>
+
+<!-- Google Fonts (matching muskoxmn.com) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&family=Roboto:wght@400;700;900&display=swap" rel="stylesheet">
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<style>
+  :root {
+    --color-bg: #f5f5f0;
+    --color-surface: #ffffff;
+    --color-primary: #1a1a1a;
+    --color-accent: #ffff00;
+    --color-accent-hover: #e6e600;
+    --color-accent-text: #1a1a1a;
+    --color-link: #1a1a1a;
+    --color-muted: #6b6b6b;
+    --color-border: #e2e2dd;
+    --color-highlight: #fffde6;
+    --radius: 10px;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.10);
+    --font: 'Open Sans', Arial, Helvetica, sans-serif;
+    --font-heading: 'Roboto', Arial, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font);
+    background: var(--color-bg);
+    color: var(--color-primary);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .locator-wrapper {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 16px;
+  }
+
+  /* Search Bar */
+  .search-section {
+    margin-bottom: 20px;
+  }
+
+  .search-bar {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .search-input-wrapper {
+    flex: 1;
+    position: relative;
+  }
+
+  .search-input-wrapper svg {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    color: var(--color-muted);
+    pointer-events: none;
+  }
+
+  .search-input {
+    width: 100%;
+    padding: 14px 16px 14px 42px;
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius);
+    font-family: var(--font);
+    font-size: 15px;
+    background: var(--color-surface);
+    color: var(--color-primary);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+  }
+
+  .search-input::placeholder { color: #aaa; }
+
+  .search-input:focus {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(255, 255, 0, 0.25);
+  }
+
+  .search-btn {
+    padding: 14px 28px;
+    background: var(--color-accent);
+    color: var(--color-accent-text);
+    border: none;
+    border-radius: var(--radius);
+    font-family: var(--font-heading);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    white-space: nowrap;
+  }
+
+  .search-btn:hover { background: var(--color-accent-hover); }
+  .search-btn:active { transform: scale(0.98); }
+
+  .radius-select {
+    padding: 14px 16px;
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius);
+    font-family: var(--font);
+    font-size: 15px;
+    background: var(--color-surface);
+    color: var(--color-primary);
+    cursor: pointer;
+    outline: none;
+    appearance: auto;
+  }
+
+  .search-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--color-muted);
+  }
+
+  .reset-btn {
+    background: none;
+    border: none;
+    color: var(--color-link);
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .reset-btn:hover { color: var(--color-muted); }
+
+  /* Layout: sidebar + map */
+  .locator-body {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 0;
+    height: 600px;
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+  }
+
+  /* Dealer list sidebar */
+  .dealer-list {
+    background: var(--color-surface);
+    overflow-y: auto;
+    border-right: 1px solid var(--color-border);
+  }
+
+  .dealer-list::-webkit-scrollbar { width: 6px; }
+  .dealer-list::-webkit-scrollbar-track { background: transparent; }
+  .dealer-list::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+
+  .dealer-card {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--color-border);
+    cursor: pointer;
+    transition: background 0.15s;
+    position: relative;
+  }
+
+  .dealer-card:hover { background: var(--color-highlight); }
+
+  .dealer-card.active {
+    background: var(--color-highlight);
+    border-left: 3px solid var(--color-accent);
+    padding-left: 17px;
+  }
+
+  .dealer-name {
+    font-family: var(--font-heading);
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: var(--color-primary);
+    line-height: 1.3;
+  }
+
+  .dealer-address {
+    font-size: 13px;
+    color: var(--color-muted);
+    line-height: 1.5;
+    margin-bottom: 6px;
+  }
+
+  .dealer-tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: #f0f0eb;
+    color: var(--color-muted);
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-bottom: 6px;
+  }
+
+  .dealer-meta {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .dealer-meta a, .dealer-meta span {
+    font-size: 12.5px;
+    color: var(--color-link);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
+  }
+
+  .dealer-meta a:hover { text-decoration: underline; }
+
+  .dealer-distance {
+    font-size: 12px;
+    color: var(--color-muted);
+    font-weight: 500;
+    background: #f0f0eb;
+    padding: 2px 8px;
+    border-radius: 20px;
+    position: absolute;
+    top: 18px;
+    right: 16px;
+  }
+
+  /* Map */
+  .map-container {
+    width: 100%;
+    height: 100%;
+    background: #e8e8e3;
+    position: relative;
+  }
+
+  #map { width: 100%; height: 100%; }
+
+  /* Loading state */
+  .loading-overlay {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    flex-direction: column;
+    gap: 12px;
+    color: var(--color-muted);
+    font-size: 14px;
+  }
+
+  .spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--color-border);
+    border-top-color: var(--color-accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Empty state */
+  .empty-state {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--color-muted);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .empty-state svg {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 12px;
+    opacity: 0.4;
+  }
+
+  /* Tablet responsive (≤1024px) */
+  @media (max-width: 1024px) {
+    .locator-body {
+      grid-template-columns: 320px 1fr;
+    }
+
+    .dealer-card {
+      padding: 14px 16px;
+    }
+
+    .dealer-name {
+      font-size: 14px;
+    }
+  }
+
+  /* Small tablet / large phone (≤768px) */
+  @media (max-width: 768px) {
+    .locator-wrapper {
+      padding: 16px 12px;
+    }
+
+    .locator-body {
+      grid-template-columns: 1fr;
+      height: auto;
+    }
+
+    .map-container {
+      height: 300px;
+      order: -1;
+    }
+
+    .dealer-list {
+      max-height: 400px;
+      border-right: none;
+      border-top: 1px solid var(--color-border);
+    }
+
+    .search-bar {
+      flex-wrap: wrap;
+    }
+
+    .search-input {
+      font-size: 16px; /* prevents iOS zoom on focus */
+    }
+
+    .radius-select {
+      flex: 1;
+      min-width: 0;
+      font-size: 16px;
+    }
+
+    .search-btn {
+      width: 100%;
+      padding: 14px 20px;
+      font-size: 16px;
+    }
+
+    .dealer-distance {
+      position: static;
+      margin-top: 6px;
+      display: inline-block;
+    }
+  }
+
+  /* Smartphone (≤480px) */
+  @media (max-width: 480px) {
+    .locator-wrapper {
+      padding: 12px 8px;
+    }
+
+    .search-bar {
+      gap: 8px;
+    }
+
+    .search-input {
+      padding: 12px 14px 12px 38px;
+    }
+
+    .search-input-wrapper svg {
+      left: 12px;
+      width: 16px;
+      height: 16px;
+    }
+
+    .radius-select {
+      padding: 12px 10px;
+    }
+
+    .search-btn {
+      padding: 12px 16px;
+    }
+
+    .map-container {
+      height: 250px;
+    }
+
+    .dealer-list {
+      max-height: 350px;
+    }
+
+    .dealer-card {
+      padding: 14px 12px;
+    }
+
+    .dealer-card.active {
+      padding-left: 9px;
+    }
+
+    .dealer-name {
+      font-size: 14px;
+    }
+
+    .dealer-address {
+      font-size: 12px;
+    }
+
+    .dealer-meta {
+      gap: 12px;
+    }
+
+    .dealer-meta a, .dealer-meta span {
+      font-size: 12px;
+    }
+
+    .dealer-tag {
+      font-size: 9px;
+      padding: 2px 6px;
+    }
+
+    .search-meta {
+      font-size: 12px;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .leaflet-popup-content {
+      min-width: 160px !important;
+      margin: 10px 12px !important;
+    }
+
+    .iw-content h3 {
+      font-size: 14px;
+    }
+
+    .iw-content p, .iw-content a {
+      font-size: 12px;
+    }
+  }
+
+  /* Leaflet popup styling */
+  .leaflet-popup-content-wrapper {
+    font-family: var(--font) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important;
+  }
+
+  .leaflet-popup-content {
+    margin: 12px 16px !important;
+    min-width: 200px;
+  }
+
+  .iw-content h3 {
+    font-family: var(--font-heading);
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--color-primary);
+  }
+
+  .iw-content p {
+    font-size: 13px;
+    color: var(--color-muted);
+    line-height: 1.5;
+    margin-bottom: 4px;
+  }
+
+  .iw-content a {
+    font-size: 13px;
+    color: var(--color-link);
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .iw-content a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<div class="locator-wrapper">
+
+  <!-- Search -->
+  <div class="search-section">
+    <div class="search-bar">
+      <div class="search-input-wrapper">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+        <input type="text" class="search-input" id="searchInput" placeholder="Enter city, state, or zip code..." autocomplete="off">
+      </div>
+      <select class="radius-select" id="radiusSelect">
+        <option value="25">25 miles</option>
+        <option value="50" selected>50 miles</option>
+        <option value="100">100 miles</option>
+        <option value="250">250 miles</option>
+        <option value="0">Show all</option>
+      </select>
+      <button class="search-btn" id="searchBtn">Search</button>
+    </div>
+    <div class="search-meta">
+      <span id="resultCount"></span>
+      <button class="reset-btn" id="resetBtn" style="display:none;">Show all dealers</button>
+    </div>
+  </div>
+
+  <!-- Body: list + map -->
+  <div class="locator-body">
+    <div class="dealer-list" id="dealerList">
+      <div class="loading-overlay" id="loadingState">
+        <div class="spinner"></div>
+        <span>Loading dealers...</span>
+      </div>
+    </div>
+    <div class="map-container">
+      <div id="map"></div>
+    </div>
+  </div>
+
+</div>
+
+<!--
+  ============================================================================
+  CONFIGURATION — Update these values for your setup
+  ============================================================================
+-->
+<script>
+const CONFIG = {
+  // -------------------------------------------------------------------
+  // GOOGLE SHEETS: Publish your sheet to the web as CSV:
+  //   File > Share > Publish to web > select Sheet1 > CSV > Publish
+  // Then paste the URL here.
+  // -------------------------------------------------------------------
+  SHEET_CSV_URL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSIAOhDakwf8potMk0RSBlrt6fX5kYBe7fVgKdMbjG29cqtm-8CUtm3JinZBaGjjXzV0HNd938lU1QJ/pub?gid=7469391&single=true&output=csv',
+
+  // -------------------------------------------------------------------
+  // GOOGLE MAPS API KEY: Used only for geocoding search queries.
+  //   The map itself uses free OpenStreetMap tiles (no key needed).
+  //   Enable: Geocoding API at https://console.cloud.google.com
+  // -------------------------------------------------------------------
+  GOOGLE_MAPS_API_KEY: 'AIzaSyAdbSAEs1baoSLsCfA4rpocBf7R3QLhJRY',
+
+  // -------------------------------------------------------------------
+  // COLUMN MAPPING: Map your spreadsheet columns to the fields below.
+  //   Use the exact header text from row 1 of your spreadsheet.
+  //   Set any field to null if your sheet doesn't have that column.
+  // -------------------------------------------------------------------
+  COLUMNS: {
+    name:    'Name',           // Dealer/business name
+    tags:    'Tags',           // Dealer tags (e.g. "Inventory Dealer Location")
+    address: 'Address',        // Street address
+    city:    'City',           // City
+    state:   'State',          // State/Province
+    zip:     'Postcode',       // Zip/Postal code
+    country: 'Country',        // Country (optional)
+    phone:   null,             // Phone number (not in sheet)
+    website: 'Website',        // Website URL (optional)
+    lat:     null,             // No lat/lng — will geocode from address
+    lng:     null,             // No lat/lng — will geocode from address
+    email:   null,             // Email (not in sheet)
+  },
+
+  // Default map center (US center) and zoom
+  DEFAULT_CENTER: [39.8283, -95.5795],
+  DEFAULT_ZOOM: 4,
+
+  // Pre-geocoded coordinates JSON URL (set to null when using inline DEALER_COORDS)
+  COORDS_JSON_URL: null,
+
+  // Custom map marker color (CSS color — MUSKOX yellow)
+  MARKER_COLOR: '#ffff00',
+};
+
+// Inline pre-geocoded coordinates (eliminates need for external JSON file)
+const DEALER_COORDS = {"0":{"lat":61.1659616,"lng":-149.8456672,"name":"Snow49"},"1":{"lat":44.8895419,"lng":-97.0899023,"name":"Bobcat of Watertown"},"2":{"lat":44.1061816,"lng":-103.1427101,"name":"Rapid City Trailer Sales"},"3":{"lat":44.1057973,"lng":-94.2188494,"name":"Blackhawk Equipment"},"4":{"lat":42.7997807,"lng":-71.6537579,"name":"Chappell Tractor"},"5":{"lat":43.7223084,"lng":-70.3006999,"name":"Jordan Equipment"},"6":{"lat":45.3124811,"lng":-94.300266,"name":"Arnold's"},"7":{"lat":44.0206919,"lng":-88.5408574,"name":"New Hydraulics"},"8":{"lat":43.543821,"lng":-96.791084,"name":"Pfiefer Implement"},"9":{"lat":40.7264159,"lng":-111.9616197,"name":"Holland Equipment"},"10":{"lat":47.8875074,"lng":-97.089285,"name":"Ironhide Equipment"},"11":{"lat":43.6543374,"lng":-93.3335574,"name":"Sanco Equipment"},"12":{"lat":45.080867,"lng":-94.3183611,"name":"Farm-Rite Equipment"},"13":{"lat":44.7674109,"lng":-94.1452082,"name":"Midwest Machinery"},"14":{"lat":42.3784045,"lng":-88.1398587,"name":"Kaplan Liquid Solutions"},"15":{"lat":44.9082985,"lng":-92.8427883,"name":"Brock Olson"},"16":{"lat":41.2571106,"lng":-97.1192544,"name":"Benes Service"},"17":{"lat":47.7110111,"lng":-79.8244011,"name":"Brownlee Equipment"},"18":{"lat":36.0480352,"lng":-114.9556435,"name":"Hardline Equipment"},"19":{"lat":42.422571,"lng":-95.005744,"name":"Engel Agri Sales Co."},"20":{"lat":41.2366313,"lng":-96.1583127,"name":"Elkhorn Lawn Care"},"21":{"lat":51.03405,"lng":-113.3870731,"name":"Rockinghorse Industries"},"22":{"lat":53.2964352,"lng":-60.3111895,"name":"Proper Care Services"},"23":{"lat":44.0753859,"lng":-92.5578767,"name":"Dave's Repair"},"24":{"lat":50.4471047,"lng":-104.5812147,"name":"Bobcat of Regina"},"25":{"lat":43.8235163,"lng":-111.787022,"name":"Mountain's Edge Sales & Service"},"28":{"lat":44.7558081,"lng":-94.1708569,"name":"Arnold's"},"29":{"lat":45.3124811,"lng":-94.300266,"name":"Arnold's"},"30":{"lat":45.0829507,"lng":-95.042584,"name":"Arnold's"},"31":{"lat":45.5077456,"lng":-94.671082,"name":"Arnold's"},"32":{"lat":44.1842248,"lng":-94.0413629,"name":"Arnold's"},"33":{"lat":43.6652705,"lng":-93.5809394,"name":"Arnold's"},"34":{"lat":45.5913275,"lng":-94.1673802,"name":"Arnold's"},"36":{"lat":42.9596218,"lng":-71.0607118,"name":"Chappell Tractor"},"37":{"lat":43.232168,"lng":-71.477588,"name":"Chappell Tractor"},"38":{"lat":42.1055449,"lng":-71.5178109,"name":"Chappell Tractor"},"40":{"lat":44.7801519,"lng":-68.8718403,"name":"Jordan Equipment"},"41":{"lat":44.3736377,"lng":-69.7961473,"name":"Jordan Equipment"},"42":{"lat":43.197538,"lng":-71.4768936,"name":"Jordan Equipment"},"44":{"lat":47.8875074,"lng":-97.089285,"name":"Ironhide Equipment"},"45":{"lat":48.1103182,"lng":-98.8615036,"name":"Ironhide Equipment"},"46":{"lat":48.1396266,"lng":-103.6842356,"name":"Ironhide Equipment"},"47":{"lat":47.5025942,"lng":-94.8850914,"name":"Ironhide Equipment"},"49":{"lat":43.8784114,"lng":-92.4943048,"name":"Sanco Equipment"},"50":{"lat":44.190043,"lng":-94.001333,"name":"Sanco Equipment"},"51":{"lat":43.1524574,"lng":-93.2017941,"name":"Sanco Equipment"},"53":{"lat":44.1015063,"lng":-91.8230022,"name":"Farm Rite Equipment"},"54":{"lat":45.574643,"lng":-94.1205808,"name":"Farm Rite Equipment"},"55":{"lat":45.9760006,"lng":-94.8649065,"name":"Farm Rite Equipment"},"57":{"lat":46.5324626,"lng":-93.7291909,"name":"Midwest Machinery"},"58":{"lat":45.8835101,"lng":-95.3745015,"name":"Midwest Machinery"},"59":{"lat":46.3478837,"lng":-94.256894,"name":"Midwest Machinery"},"60":{"lat":45.3195092,"lng":-95.6171604,"name":"Midwest Machinery"},"61":{"lat":43.6350469,"lng":-91.496387,"name":"Midwest Machinery"},"62":{"lat":44.489451,"lng":-92.9064547,"name":"Midwest Machinery"},"63":{"lat":45.221109,"lng":-93.0921249,"name":"Midwest Machinery"},"64":{"lat":45.9937742,"lng":-95.9695734,"name":"Midwest Machinery"},"65":{"lat":45.6686658,"lng":-95.3864592,"name":"Midwest Machinery"},"66":{"lat":43.7114826,"lng":-92.565486,"name":"Midwest Machinery"},"67":{"lat":44.7426933,"lng":-92.8518697,"name":"Midwest Machinery"},"68":{"lat":45.0607968,"lng":-94.0733088,"name":"Midwest Machinery"},"69":{"lat":45.9763545,"lng":-94.3625024,"name":"Midwest Machinery"},"70":{"lat":45.009685,"lng":-96.195877,"name":"Midwest Machinery"},"71":{"lat":45.586072,"lng":-95.913941,"name":"Midwest Machinery"},"72":{"lat":45.1359128,"lng":-92.5321462,"name":"Midwest Machinery"},"73":{"lat":44.4719461,"lng":-93.1531997,"name":"Midwest Machinery"},"74":{"lat":45.3211518,"lng":-92.7054903,"name":"Midwest Machinery"},"75":{"lat":45.3746013,"lng":-94.711867,"name":"Midwest Machinery"},"76":{"lat":44.1647423,"lng":-92.1717609,"name":"Midwest Machinery"},"77":{"lat":45.5977669,"lng":-93.6045348,"name":"Midwest Machinery"},"78":{"lat":45.724543,"lng":-94.959048,"name":"Midwest Machinery"},"79":{"lat":45.5816283,"lng":-94.0904127,"name":"Midwest Machinery"},"80":{"lat":43.9693607,"lng":-92.0659824,"name":"Midwest Machinery"},"81":{"lat":44.7246843,"lng":-94.4858185,"name":"Midwest Machinery"},"82":{"lat":45.3938003,"lng":-92.1423009,"name":"Midwest Machinery"},"83":{"lat":46.4424614,"lng":-95.1361386,"name":"Midwest Machinery"},"84":{"lat":44.2976686,"lng":-92.7703404,"name":"Midwest Machinery"},"86":{"lat":46.7948186,"lng":-100.7641312,"name":"RDO Equipment"},"87":{"lat":48.202158,"lng":-114.315321,"name":"RDO Equipment"},"88":{"lat":45.6794293,"lng":-111.044047,"name":"RDO Equipment"},"89":{"lat":44.0997352,"lng":-103.2680552,"name":"RDO Equipment"},"90":{"lat":40.7395833,"lng":-111.9861227,"name":"RDO Equipment"},"91":{"lat":46.8352804,"lng":-96.7263673,"name":"RDO Equipment"},"92":{"lat":43.5758828,"lng":-96.7709518,"name":"RDO Equipment"},"93":{"lat":47.932987,"lng":-97.0930008,"name":"RDO Equipment"},"94":{"lat":45.1568044,"lng":-93.5086112,"name":"RDO Equipment"},"96":{"lat":41.574549,"lng":-90.6120951,"name":"Lawnscapers, Inc."},"98":{"lat":51.2282164,"lng":-101.3550583,"name":"Roblin Welding & Repair"}};
+</script>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+(function() {
+  'use strict';
+
+  let map, activePopup;
+  let allDealers = [];
+  let filteredDealers = [];
+  let markers = [];
+  let markerGroup;
+  let activeCardIndex = -1;
+
+  // ── Custom SVG Marker ──────────────────────────────────────────────
+  function createMarkerIcon(color) {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="28" height="42">
+      <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24C24 5.4 18.6 0 12 0z" fill="${color}" stroke="#1a1a1a" stroke-width="1.5"/>
+      <circle cx="12" cy="12" r="4.5" fill="#1a1a1a" opacity="0.85"/>
+    </svg>`;
+    return L.divIcon({
+      html: svg,
+      className: '',
+      iconSize: [28, 42],
+      iconAnchor: [14, 42],
+      popupAnchor: [0, -36],
+    });
+  }
+
+  // ── CSV Parser ──────────────────────────────────────────────────────
+  function parseCSV(text) {
+    const lines = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (text[i + 1] === '"') { current += '"'; i++; }
+          else { inQuotes = false; }
+        } else {
+          current += ch;
+        }
+      } else {
+        if (ch === '"') { inQuotes = true; }
+        else if (ch === ',') {
+          lines.push(current); current = '';
+        }
+        else if (ch === '\n' || (ch === '\r' && text[i + 1] === '\n')) {
+          lines.push(current); current = '';
+          if (ch === '\r') i++;
+          lines.push('\n');
+        }
+        else { current += ch; }
+      }
+    }
+    lines.push(current);
+
+    const rows = [[]];
+    for (const item of lines) {
+      if (item === '\n') rows.push([]);
+      else rows[rows.length - 1].push(item.trim());
+    }
+
+    return rows.filter(r => r.length > 1 || (r.length === 1 && r[0] !== ''));
+  }
+
+  function csvToObjects(text) {
+    const rows = parseCSV(text);
+    if (rows.length < 2) return [];
+    const headers = rows[0];
+    return rows.slice(1).map(row => {
+      const obj = {};
+      headers.forEach((h, i) => { obj[h] = row[i] || ''; });
+      return obj;
+    });
+  }
+
+  // ── Geocoding via OpenStreetMap Nominatim (free) ───────────────────
+  async function geocodeAddress(address) {
+    // Detect if the query is just a zip/postal code (all digits, 5 or 5+4 format)
+    const isZipOnly = /^\d{5}(-\d{4})?$/.test(address.trim());
+
+    // Build query — bias toward US/Canada for zip codes
+    let query = address;
+    if (isZipOnly) {
+      query = address.trim() + ', United States';
+    }
+
+    // Try with country bias first (US/Canada), then fallback without
+    const countryBias = 'us,ca';
+
+    try {
+      // First attempt: with country codes to prefer North American results
+      let url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=${countryBias}&q=${encodeURIComponent(query)}`;
+      let resp = await fetch(url, {
+        headers: { 'User-Agent': 'DealerLocatorWidget/1.0' }
+      });
+      let data = await resp.json();
+
+      if (data && data[0]) {
+        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+      }
+
+      // Fallback: search without country restriction (for Canadian postal codes, etc.)
+      if (!isZipOnly) {
+        url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`;
+        resp = await fetch(url, {
+          headers: { 'User-Agent': 'DealerLocatorWidget/1.0' }
+        });
+        data = await resp.json();
+        if (data && data[0]) {
+          return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        }
+      }
+    } catch (e) {
+      console.warn('Geocode failed for:', address);
+    }
+    return null;
+  }
+
+  // ── Data Loading ────────────────────────────────────────────────────
+  async function loadDealers() {
+    try {
+      // Load CSV data and pre-geocoded coords in parallel
+      const [csvResp, coordsResp] = await Promise.all([
+        fetch(CONFIG.SHEET_CSV_URL),
+        CONFIG.COORDS_JSON_URL ? fetch(CONFIG.COORDS_JSON_URL).catch(() => null) : Promise.resolve(null),
+      ]);
+
+      if (!csvResp.ok) throw new Error('Failed to load spreadsheet');
+      const text = await csvResp.text();
+      const raw = csvToObjects(text);
+
+      // Load pre-geocoded coordinates if available
+      let coordCache = {};
+      if (coordsResp && coordsResp.ok) {
+        try { coordCache = await coordsResp.json(); } catch(e) {}
+      } else if (typeof DEALER_COORDS !== 'undefined') {
+        coordCache = DEALER_COORDS;
+      }
+
+      allDealers = raw.map((row, i) => {
+        const c = CONFIG.COLUMNS;
+        const dealer = {
+          id: i,
+          name: row[c.name] || 'Unknown',
+          tags: c.tags ? (row[c.tags] || '') : '',
+          address: row[c.address] || '',
+          city: row[c.city] || '',
+          state: row[c.state] || '',
+          zip: row[c.zip] || '',
+          country: row[c.country] || '',
+          phone: c.phone ? (row[c.phone] || '') : '',
+          website: c.website ? (row[c.website] || '') : '',
+          email: c.email ? (row[c.email] || '') : '',
+          lat: c.lat ? parseFloat(row[c.lat]) : null,
+          lng: c.lng ? parseFloat(row[c.lng]) : null,
+        };
+        dealer.fullAddress = [dealer.address, dealer.city, dealer.state, dealer.zip, dealer.country]
+          .filter(Boolean).join(', ');
+        dealer.cityState = [dealer.city, dealer.state].filter(Boolean).join(', ');
+
+        // Apply cached coordinates (keyed by row index)
+        if ((!dealer.lat || !dealer.lng) && coordCache[String(i)]) {
+          dealer.lat = coordCache[String(i)].lat;
+          dealer.lng = coordCache[String(i)].lng;
+        }
+
+        return dealer;
+      }).filter(d => d.name && d.name !== 'Unknown');
+
+      // Sort alphabetically by dealer name
+      allDealers.sort((a, b) => a.name.localeCompare(b.name));
+
+      filteredDealers = [...allDealers];
+      renderList(filteredDealers);
+      placeMarkers(filteredDealers);
+      fitBounds(filteredDealers);
+
+    } catch (err) {
+      console.error('Error loading dealers:', err);
+      document.getElementById('dealerList').innerHTML = `
+        <div class="empty-state">
+          <p><strong>Unable to load dealer data.</strong></p>
+          <p>Make sure the Google Sheet is published to the web as CSV.<br>
+          File &rarr; Share &rarr; Publish to web &rarr; CSV</p>
+        </div>`;
+    }
+  }
+
+  // ── Map Markers ─────────────────────────────────────────────────────
+  function clearMarkers() {
+    if (markerGroup) {
+      markerGroup.clearLayers();
+    }
+    markers = [];
+  }
+
+  function placeMarkers(dealers) {
+    clearMarkers();
+    const icon = createMarkerIcon(CONFIG.MARKER_COLOR);
+
+    dealers.forEach((dealer, idx) => {
+      if (!dealer.lat || !dealer.lng || isNaN(dealer.lat) || isNaN(dealer.lng)) return;
+
+      const marker = L.marker([dealer.lat, dealer.lng], { icon: icon });
+
+      const popupContent = buildPopupContent(dealer);
+      marker.bindPopup(popupContent, { maxWidth: 280 });
+
+      marker.on('click', () => {
+        highlightCard(idx);
+      });
+
+      markerGroup.addLayer(marker);
+      markers.push(marker);
+    });
+  }
+
+  function buildPopupContent(dealer) {
+    const phone = dealer.phone ? `<p>&#x1F4DE; <a href="tel:${dealer.phone}">${dealer.phone}</a></p>` : '';
+    const website = dealer.website ? `<p>&#x1F310; <a href="${dealer.website.startsWith('http') ? dealer.website : 'https://' + dealer.website}" target="_blank" rel="noopener">Visit Website</a></p>` : '';
+    const directions = `<p>&#x1F4CD; <a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dealer.fullAddress)}" target="_blank" rel="noopener">Get Directions</a></p>`;
+
+    return `
+      <div class="iw-content">
+        <h3>${dealer.name}</h3>
+        <p>${dealer.address}<br>${dealer.cityState}${dealer.zip ? ' ' + dealer.zip : ''}</p>
+        ${phone}${website}${directions}
+      </div>
+    `;
+  }
+
+  function fitBounds(dealers) {
+    const valid = dealers.filter(d => d.lat && d.lng && !isNaN(d.lat) && !isNaN(d.lng));
+    if (!valid.length) {
+      map.setView(CONFIG.DEFAULT_CENTER, CONFIG.DEFAULT_ZOOM);
+      return;
+    }
+    if (valid.length === 1) {
+      map.setView([valid[0].lat, valid[0].lng], 10);
+      return;
+    }
+    const bounds = L.latLngBounds(valid.map(d => [d.lat, d.lng]));
+    map.fitBounds(bounds, { padding: [40, 40] });
+  }
+
+  // ── Dealer List Rendering ───────────────────────────────────────────
+  function renderList(dealers) {
+    const list = document.getElementById('dealerList');
+    document.getElementById('loadingState')?.remove();
+
+    if (!dealers.length) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg>
+          <p>No dealers found in this area.<br>Try expanding your search radius.</p>
+        </div>`;
+      return;
+    }
+
+    list.innerHTML = dealers.map((d, i) => {
+      const distLabel = d._distance != null ? `${d._distance.toFixed(0)} mi` : '';
+      const phone = d.phone ? `<a href="tel:${d.phone}">&#x1F4DE; ${d.phone}</a>` : '';
+      const website = d.website ? `<a href="${d.website.startsWith('http') ? d.website : 'https://' + d.website}" target="_blank" rel="noopener">&#x1F310; Website</a>` : '';
+      const directions = `<a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(d.fullAddress)}" target="_blank" rel="noopener">&#x1F4CD; Directions</a>`;
+
+      const tag = d.tags ? `<span class="dealer-tag">${d.tags}</span>` : '';
+
+      return `
+        <div class="dealer-card" data-index="${i}" onclick="window.__locator.selectDealer(${i})">
+          <div class="dealer-name">${d.name}</div>
+          ${tag}
+          <div class="dealer-address">${d.address}<br>${d.cityState}${d.zip ? ' ' + d.zip : ''}</div>
+          <div class="dealer-meta">
+            ${phone}${website}${directions}
+          </div>
+          ${distLabel ? `<span class="dealer-distance">${distLabel}</span>` : ''}
+        </div>`;
+    }).join('');
+
+    updateResultCount(dealers.length);
+  }
+
+  function highlightCard(index) {
+    document.querySelectorAll('.dealer-card').forEach(c => c.classList.remove('active'));
+    const card = document.querySelector(`.dealer-card[data-index="${index}"]`);
+    if (card) {
+      card.classList.add('active');
+      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    activeCardIndex = index;
+  }
+
+  function updateResultCount(count) {
+    const el = document.getElementById('resultCount');
+    const resetBtn = document.getElementById('resetBtn');
+    if (filteredDealers.length !== allDealers.length) {
+      el.textContent = `Showing ${count} dealer${count !== 1 ? 's' : ''}`;
+      resetBtn.style.display = 'inline';
+    } else {
+      el.textContent = `${count} dealer${count !== 1 ? 's' : ''} total`;
+      resetBtn.style.display = 'none';
+    }
+  }
+
+  // ── Search & Distance ───────────────────────────────────────────────
+  function haversineDistance(lat1, lng1, lat2, lng2) {
+    const R = 3958.8; // Earth radius in miles
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  async function doSearch() {
+    const query = document.getElementById('searchInput').value.trim();
+    const radius = parseInt(document.getElementById('radiusSelect').value);
+
+    if (!query) {
+      resetSearch();
+      return;
+    }
+
+    // Geocode the search query using Nominatim
+    const result = await geocodeAddress(query);
+
+    if (!result) {
+      // Fallback: text search on name/city/state/zip
+      const q = query.toLowerCase();
+      filteredDealers = allDealers.filter(d =>
+        d.name.toLowerCase().includes(q) ||
+        d.city.toLowerCase().includes(q) ||
+        d.state.toLowerCase().includes(q) ||
+        d.zip.includes(q)
+      );
+      filteredDealers.forEach(d => { d._distance = null; });
+      renderList(filteredDealers);
+      placeMarkers(filteredDealers);
+      fitBounds(filteredDealers);
+      return;
+    }
+
+    const searchLat = result.lat;
+    const searchLng = result.lng;
+
+    // Calculate distances
+    allDealers.forEach(d => {
+      if (d.lat && d.lng && !isNaN(d.lat) && !isNaN(d.lng)) {
+        d._distance = haversineDistance(searchLat, searchLng, d.lat, d.lng);
+      } else {
+        d._distance = Infinity;
+      }
+    });
+
+    // Filter by radius
+    if (radius > 0) {
+      filteredDealers = allDealers
+        .filter(d => d._distance <= radius)
+        .sort((a, b) => a._distance - b._distance);
+    } else {
+      filteredDealers = [...allDealers].sort((a, b) => (a._distance || Infinity) - (b._distance || Infinity));
+    }
+
+    renderList(filteredDealers);
+    placeMarkers(filteredDealers);
+
+    if (filteredDealers.length) {
+      fitBounds(filteredDealers);
+    } else {
+      map.setView([searchLat, searchLng], 8);
+    }
+  }
+
+  function resetSearch() {
+    document.getElementById('searchInput').value = '';
+    allDealers.forEach(d => { d._distance = null; });
+    filteredDealers = [...allDealers];
+    renderList(filteredDealers);
+    placeMarkers(filteredDealers);
+    fitBounds(filteredDealers);
+  }
+
+  // ── Public API (for onclick handlers) ───────────────────────────────
+  window.__locator = {
+    selectDealer(index) {
+      const dealer = filteredDealers[index];
+      if (!dealer) return;
+      highlightCard(index);
+      if (dealer.lat && dealer.lng && markers[index]) {
+        map.setView([dealer.lat, dealer.lng], 12);
+        markers[index].openPopup();
+      }
+    }
+  };
+
+  // ── Init ────────────────────────────────────────────────────────────
+  function init() {
+    map = L.map('map', {
+      center: CONFIG.DEFAULT_CENTER,
+      zoom: CONFIG.DEFAULT_ZOOM,
+      zoomControl: true,
+      attributionControl: true,
+    });
+
+    // OpenStreetMap tiles (free, no API key)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19,
+    }).addTo(map);
+
+    markerGroup = L.layerGroup().addTo(map);
+
+    // Event listeners
+    document.getElementById('searchBtn').addEventListener('click', doSearch);
+    document.getElementById('searchInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') doSearch();
+    });
+    document.getElementById('resetBtn').addEventListener('click', resetSearch);
+
+    loadDealers();
+  }
+
+  // Start when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+
+</body>
+</html>
