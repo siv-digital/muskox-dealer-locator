@@ -753,6 +753,23 @@ const DEALER_COORDS = {"0":{"lat":61.1659616,"lng":-149.8456672,"name":"Snow49"}
         return dealer;
       }).filter(d => d.name && d.name !== 'Unknown');
 
+      // Auto-geocode dealers missing coordinates (e.g. newly added to sheet)
+      const needsGeocode = allDealers.filter(d => (!d.lat || !d.lng || isNaN(d.lat) || isNaN(d.lng)) && d.fullAddress);
+      for (const dealer of needsGeocode) {
+        const result = await geocodeAddress(dealer.fullAddress);
+        if (result) {
+          dealer.lat = result.lat;
+          dealer.lng = result.lng;
+          console.log(`Auto-geocoded: ${dealer.name} (${dealer.cityState}) → ${result.lat}, ${result.lng}`);
+        } else {
+          console.warn(`Could not geocode: ${dealer.name} (${dealer.fullAddress})`);
+        }
+        // Nominatim rate limit: 1 request/sec
+        if (needsGeocode.indexOf(dealer) < needsGeocode.length - 1) {
+          await new Promise(r => setTimeout(r, 1100));
+        }
+      }
+
       // Sort alphabetically by dealer name
       allDealers.sort((a, b) => a.name.localeCompare(b.name));
 
