@@ -19,8 +19,7 @@ Wix (muskoxmn.com/find-dealer)
 - **Frontend:** Single self-contained `index.html` — no build step, no dependencies to install
 - **Map:** Leaflet.js 1.9.4 with OpenStreetMap tiles (free, no API key)
 - **Data:** Google Sheets published as CSV, fetched on every page load
-- **Search geocoding:** Google Maps Geocoding API (for user search queries only)
-- **Fallback geocoding:** OpenStreetMap Nominatim (for dealers missing lat/lng in the sheet)
+- **Geocoding:** OpenStreetMap Nominatim (for search queries and dealers missing lat/lng in the sheet)
 - **Hosting:** GitHub Pages — auto-deploys on push to `main`
 - **Wix integration:** iframe pointing to GitHub Pages URL — no manual Wix update needed after code deploys
 
@@ -65,7 +64,6 @@ All configuration lives in the `CONFIG` object at the top of `index.html`:
 | Setting | Purpose |
 |---------|---------|
 | `SHEET_CSV_URL` | Published Google Sheet CSV URL |
-| `GOOGLE_MAPS_API_KEY` | Google Maps API key (search geocoding only) |
 | `COLUMNS` | Maps sheet column headers to data fields |
 | `DEFAULT_CENTER` | Initial map center `[lat, lng]` — default US center |
 | `DEFAULT_ZOOM` | Initial zoom level — default 4 |
